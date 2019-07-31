@@ -21,3 +21,7 @@ generate solution with cmake and vcpkg:
 ```
 cmake .. -DCMAKE_TOOLCHAIN_FILE=<vcpkg root directory>\scripts\buildsystems\vcpkg.cmake
 ```
+
+### Integrate with vcpkg
+
+see [leveldb-mcpe-portfile](https://github.com/jasper-wan/leveldb-mcpe-portfile).
