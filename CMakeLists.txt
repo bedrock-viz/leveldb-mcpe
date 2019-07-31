@@ -35,6 +35,7 @@ include(CheckIncludeFile)
 check_include_file("unistd.h" HAVE_UNISTD_H)
 
 include(CheckLibraryExists)
+find_package(ZLIB REQUIRED)
 check_library_exists(crc32c crc32c_value "" HAVE_CRC32C)
 check_library_exists(snappy snappy_compress "" HAVE_SNAPPY)
 check_library_exists(tcmalloc malloc "" HAVE_TCMALLOC)
@@ -119,7 +120,7 @@ if(BUILD_SHARED_LIBS)
   add_compile_options(-fvisibility=hidden)
 endif(BUILD_SHARED_LIBS)
 
-add_library(leveldb "")
+add_library(leveldb SHARED "")
 target_sources(leveldb
   PRIVATE
     "${PROJECT_BINARY_DIR}/${LEVELDB_PORT_CONFIG_DIR}/port_config.h"
@@ -156,6 +157,8 @@ target_sources(leveldb
     "${PROJECT_SOURCE_DIR}/port/port_stdcxx.h"
     "${PROJECT_SOURCE_DIR}/port/port.h"
     "${PROJECT_SOURCE_DIR}/port/thread_annotations.h"
+    "${PROJECT_SOURCE_DIR}/table/compressor/zlib_compressor.cc"
+    "${PROJECT_SOURCE_DIR}/table/compressor/zlib_compressor.h"
     "${PROJECT_SOURCE_DIR}/table/block_builder.cc"
     "${PROJECT_SOURCE_DIR}/table/block_builder.h"
     "${PROJECT_SOURCE_DIR}/table/block.cc"
@@ -210,6 +213,7 @@ target_sources(leveldb
     "${LEVELDB_PUBLIC_INCLUDE_DIR}/table_builder.h"
     "${LEVELDB_PUBLIC_INCLUDE_DIR}/table.h"
     "${LEVELDB_PUBLIC_INCLUDE_DIR}/write_batch.h"
+    "${LEVELDB_PUBLIC_INCLUDE_DIR}/decompress_allocator.h"
 )
 
 if (WIN32)
@@ -270,6 +274,8 @@ if(HAVE_CLANG_THREAD_SAFETY)
       -Werror -Wthread-safety)
 endif(HAVE_CLANG_THREAD_SAFETY)
 
+target_link_libraries(leveldb ZLIB::ZLIB)
+
 if(HAVE_CRC32C)
   target_link_libraries(leveldb crc32c)
 endif(HAVE_CRC32C)
@@ -288,6 +294,11 @@ add_executable(leveldbutil
   "${PROJECT_SOURCE_DIR}/db/leveldbutil.cc"
 )
 target_link_libraries(leveldbutil leveldb)
+
+add_executable(mcpe_test
+"${PROJECT_SOURCE_DIR}/db/mcpe_test.cc"
+)
+target_link_libraries(mcpe_test leveldb)
 
 if(LEVELDB_BUILD_TESTS)
   enable_testing()
@@ -454,6 +465,7 @@ if(LEVELDB_INSTALL)
       "${PROJECT_SOURCE_DIR}/${LEVELDB_PUBLIC_INCLUDE_DIR}/table_builder.h"
       "${PROJECT_SOURCE_DIR}/${LEVELDB_PUBLIC_INCLUDE_DIR}/table.h"
       "${PROJECT_SOURCE_DIR}/${LEVELDB_PUBLIC_INCLUDE_DIR}/write_batch.h"
+      "${PROJECT_SOURCE_DIR}/${LEVELDB_PUBLIC_INCLUDE_DIR}/decompress_allocator.h"
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/leveldb
   )
 

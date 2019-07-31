@@ -9,6 +9,8 @@
 
 #include "leveldb/export.h"
 
+#include "leveldb/decompress_allocator.h"
+
 namespace leveldb {
 
 class Cache;
@@ -17,6 +19,8 @@ class Env;
 class FilterPolicy;
 class Logger;
 class Snapshot;
+// MCPE
+class Compressor;
 
 // DB contents are stored in a set of blocks, each of which holds a
 // sequence of key,value pairs.  Each block may be compressed before
@@ -26,7 +30,9 @@ enum CompressionType {
   // NOTE: do not change the values of existing entries, as these are
   // part of the persistent format on disk.
   kNoCompression = 0x0,
-  kSnappyCompression = 0x1
+  kSnappyCompression = 0x1,
+  kZlibCompression = 0x2,
+  kZlibRawCompression = 0x4
 };
 
 // Options to control the behavior of a database (passed to DB::Open)
@@ -140,6 +146,9 @@ struct LEVELDB_EXPORT Options {
   // Many applications will benefit from passing the result of
   // NewBloomFilterPolicy() here.
   const FilterPolicy* filter_policy = nullptr;
+
+  // MCPE: Zlib Compression Level
+  int zlib_compression_level = -1;
 };
 
 // Options that control read operations
@@ -159,6 +168,9 @@ struct LEVELDB_EXPORT ReadOptions {
   // not have been released).  If "snapshot" is null, use an implicit
   // snapshot of the state at the beginning of this read operation.
   const Snapshot* snapshot = nullptr;
+
+  // MCPE
+  DecompressAllocator* decompress_allocator = nullptr;
 };
 
 // Options that control write operations

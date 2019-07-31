@@ -16,6 +16,9 @@
 #include "util/coding.h"
 #include "util/crc32c.h"
 
+// MCPE
+#include "table/compressor/zlib_compressor.h"
+
 namespace leveldb {
 
 struct TableBuilder::Rep {
@@ -163,6 +166,29 @@ void TableBuilder::WriteBlock(BlockBuilder* block, BlockHandle* handle) {
       } else {
         // Snappy not supported, or compressed less than 12.5%, so just
         // store uncompressed form
+        block_contents = raw;
+        type = kNoCompression;
+      }
+      break;
+    }
+
+    case kZlibCompression:{
+      std::string& compressed = r->compressed_output;
+      if (Zlib_Compress(r->options.zlib_compression_level, raw.data(), raw.size(), compressed) &&
+          compressed.size() < raw.size() - (raw.size() / 8u)) {
+            block_contents = compressed;
+      } else {
+        block_contents = raw;
+        type = kNoCompression;
+      }
+      break;
+    }
+    case kZlibRawCompression: {
+      std::string& compressed = r->compressed_output;
+      if (ZlibRaw_Compress(r->options.zlib_compression_level, raw.data(), raw.size(), compressed) &&
+          compressed.size() < raw.size() - (raw.size() / 8u)) {
+            block_contents = compressed;
+      } else {
         block_contents = raw;
         type = kNoCompression;
       }

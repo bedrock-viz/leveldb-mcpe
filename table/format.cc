@@ -10,7 +10,35 @@
 #include "util/coding.h"
 #include "util/crc32c.h"
 
+#include "leveldb/decompress_allocator.h"
+#include "table/compressor/zlib_compressor.h"
+
 namespace leveldb {
+
+  DecompressAllocator::~DecompressAllocator() {}
+
+	std::string DecompressAllocator::get() {
+
+		std::string buffer;
+		std::lock_guard<std::mutex> lock(mutex);
+
+		if (!stack.empty()) {
+			buffer = std::move(stack.back());
+			buffer.clear();
+			stack.pop_back();
+		}
+		return buffer;
+	}
+
+	void DecompressAllocator::release(std::string&& string) {
+		std::lock_guard<std::mutex> lock(mutex);
+		stack.push_back(std::move(string));
+	}
+
+	void DecompressAllocator::prune() {
+		std::lock_guard<std::mutex> lock(mutex);
+		stack.clear();
+	}
 
 void BlockHandle::EncodeTo(std::string* dst) const {
   // Sanity check that all fields have been set
@@ -128,6 +156,45 @@ Status ReadBlock(RandomAccessFile* file, const ReadOptions& options,
       result->data = Slice(ubuf, ulength);
       result->heap_allocated = true;
       result->cachable = true;
+      break;
+    }
+    case kZlibCompression: {
+      std::string output;
+      if (options.decompress_allocator) {
+				output = options.decompress_allocator->get();
+      }
+      if (!Zlib_Uncompress(data, n, output)) {
+        delete[] buf;
+        return Status::Corruption("corrupted compressed block contents");
+      }
+      delete[] buf;
+      char* ubuf = new char[output.size()];
+      std::memcpy(ubuf, output.data(), output.size());
+      result->data = Slice(ubuf, output.size());
+      result->heap_allocated = true;
+      result->cachable = true;
+      if (options.decompress_allocator) {
+	      options.decompress_allocator->release(std::move(output));
+	    }
+      break;
+    }
+    case kZlibRawCompression: {
+      std::string output;
+      if (!ZlibRaw_Uncompress(data, n, output)) {
+        delete[] buf;
+        return Status::Corruption("corrupted compressed block contents");
+      }
+      delete[] buf;
+      char* ubuf = new char[output.size()];
+      std::memcpy(ubuf, output.data(), output.size());
+      result->data = Slice(ubuf, output.size());
+      result->heap_allocated = true;
+      result->cachable = true;
+
+      if (options.decompress_allocator) {
+				options.decompress_allocator->release(std::move(output));
+			}
+
       break;
     }
     default:
